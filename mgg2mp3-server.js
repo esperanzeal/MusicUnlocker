@@ -13,7 +13,7 @@ const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
 
 const PORT = 8765;
 const CACHE_FILE = path.join(__dirname, '.mgg2mp3_cache.json');
-const DEFAULT_OUT = path.join(__dirname, 'output');
+const DEFAULT_OUT = 'E:\\Music';
 
 
 // ── HTML ─────────────────────────────────────────────────
