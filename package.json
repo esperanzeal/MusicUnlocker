@@ -2,7 +2,6 @@
   "name": "musicunlocker",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -11,7 +10,6 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@clamber_l/crypto": "^0.1.12",
-    "NeteaseCloudMusicApi": "^4.32.0"
+    "@clamber_l/crypto": "^0.1.12"
   }
 }
