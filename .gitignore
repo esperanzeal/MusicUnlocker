@@ -5,3 +5,5 @@ mgg2mp3_uploads/
 app_bundle.js
 chunk_vendors.js
 inspect_wasm.js
+
+package-lock.json
