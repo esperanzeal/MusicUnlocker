@@ -1,0 +1,7 @@
+node_modules/
+.mgg2mp3_cache.json
+mgg2mp3_uploads/
+*.bin
+app_bundle.js
+chunk_vendors.js
+inspect_wasm.js
