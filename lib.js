@@ -166,7 +166,7 @@ function* scanFiles(dir, toMp3) {
     const isMflac = el.endsWith('.mflac');
     const outExt = isMflac ? '.flac' : (toMp3 ? '.mp3' : '.ogg');
     const outPath = path.join(dir, entry.name.replace(isMflac ? /\.mflac$/i : /\.mgg$/i, outExt));
-    if (fs.existsSync(outPath)) continue; // skip already converted
+    if (fs.existsSync(outPath)) { console.log(`⏭️  ${entry.name} (已有 ${outExt})`); continue; }
     yield { inputPath: path.join(dir, entry.name), outExt, isMflac };
   }
 }

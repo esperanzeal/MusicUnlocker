@@ -10,6 +10,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@clamber_l/crypto": "^0.1.12"
+    "@clamber_l/crypto": "^0.1.12",
+    "busboy": "^1.6.0"
   }
 }

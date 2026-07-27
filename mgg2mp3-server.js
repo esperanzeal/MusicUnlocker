@@ -6,7 +6,10 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const Busboy = require('busboy');
 const { ensureWasm, parseFooter, decrypt, toMp3 } = require('./lib');
+
+const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
 
 const PORT = 8765;
 const CACHE_FILE = path.join(__dirname, '.mgg2mp3_cache.json');
@@ -93,30 +96,6 @@ function escapeHtml(s){const d=document.createElement('div');d.textContent=s;ret
 </html>`;
 function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ── multipart 解析 ──────────────────────────────────────
-function parseMultipart(raw, boundary) {
-  // boundary 是 ASCII，用 latin1 保留字节映射
-  const str = raw.toString('latin1');
-  const parts = str.split('--' + boundary);
-  for (const part of parts) {
-    if (!part.includes('filename=')) continue;
-    const headerEnd = part.indexOf('\r\n\r\n');
-    if (headerEnd < 0) continue;
-
-    const header = part.substring(0, headerEnd);
-    const nameMatch = header.match(/filename="(.+?)"/);
-    const fileName = nameMatch
-      ? Buffer.from(nameMatch[1], 'latin1').toString('utf8')  // UTF-8 文件名还原
-      : 'unknown.mgg';
-
-    let bodyStr = part.substring(headerEnd + 4);
-    const trailIdx = bodyStr.lastIndexOf('\r\n');
-    if (trailIdx > 0) bodyStr = bodyStr.substring(0, trailIdx);
-    return { fileName, buffer: Buffer.from(bodyStr, 'latin1') };
-  }
-  return null;
-}
-
 // ── HTTP ─────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -129,18 +108,34 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && req.url.startsWith('/convert')) {
     const qs=new URLSearchParams(req.url.split('?')[1]||'');const toMp3Flag=qs.get('mp3')==='true';const outDir=qs.get('out')||DEFAULT_OUT;if(!fs.existsSync(outDir))fs.mkdirSync(outDir,{recursive:true});
-    const chunks = [];
-    const ct = req.headers['content-type'] || '';
-    const boundary = ct.split('boundary=')[1];
-    if (!boundary) { res.writeHead(400); res.end('bad request'); return; }
 
-    req.on('data', c => chunks.push(c));
-    req.on('end', async () => {
+    // size check
+    const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+    if (contentLength > MAX_FILE_SIZE) {
+      res.writeHead(413, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(`文件超过 ${MAX_FILE_SIZE / 1024 / 1024}MB 限制`);
+      return;
+    }
+
+    const busboy = Busboy({ headers: req.headers, limits: { fileSize: MAX_FILE_SIZE } });
+    let fileBuffer = null, fileName = 'unknown.mgg', aborted = false;
+
+    busboy.on('file', (fieldname, stream, info) => {
+      fileName = info.filename;
+      const chunks = [];
+      stream.on('data', c => chunks.push(c));
+      stream.on('limit', () => { aborted = true; stream.resume(); });
+      stream.on('end', () => { if (!aborted) fileBuffer = Buffer.concat(chunks); });
+    });
+
+    req.pipe(busboy);
+
+    busboy.on('close', async () => {
       try {
-        const parsed = parseMultipart(Buffer.concat(chunks), boundary);
-        if (!parsed) throw new Error('No file data');
+        if (aborted) throw new Error(`文件超过 ${MAX_FILE_SIZE / 1024 / 1024}MB 限制`);
+        if (!fileBuffer) throw new Error('No file data');
 
-        const { buffer, fileName } = parsed;
+        const buffer = fileBuffer;
         const info = parseFooter(buffer);
         if (!info) throw new Error('无法识别的文件格式');
 
